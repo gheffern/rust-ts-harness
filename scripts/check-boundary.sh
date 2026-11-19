@@ -81,10 +81,10 @@ fi
 
 # 3. INV-BOUNDARY-2: Zero agentic files or developer host paths in inner repo
 if [[ -n "${ACTIVE_INNER}" ]]; then
-  if [[ -e "${ACTIVE_INNER}/AGENTS.md" || -d "${ACTIVE_INNER}/.agents" ]]; then
-    fail "INV-BOUNDARY-2 violation: AGENTS.md or .agents/ found inside inner repo."
+  if [[ -e "${ACTIVE_INNER}/AGENTS.md" || -d "${ACTIVE_INNER}/.agents" || -e "${ACTIVE_INNER}/CLAUDE.md" || -d "${ACTIVE_INNER}/.claude" || -d "${ACTIVE_INNER}/.opencode" ]]; then
+    fail "INV-BOUNDARY-2 violation: agentic config (AGENTS.md/.agents/CLAUDE.md/.claude/.opencode) found inside inner repo."
   fi
-  LEAK_MATCHES="$(grep -rnE "AGENTS\.md|\.agents/|harness\.env|docs/internal/|/home/[a-zA-Z0-9._-]+/" \
+  LEAK_MATCHES="$(grep -rnE "AGENTS\.md|CLAUDE\.md|\.agents/|\.claude/|\.opencode/|harness\.env|docs/internal/|/home/[a-zA-Z0-9._-]+/" \
     "${ACTIVE_INNER}" \
     --exclude-dir=target --exclude-dir=node_modules --exclude-dir=.git --exclude=.git 2>/dev/null || true)"
   if [[ -n "${LEAK_MATCHES}" ]]; then

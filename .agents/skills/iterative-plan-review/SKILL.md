@@ -22,7 +22,7 @@ flowchart TD
     PlanCheck -- "Yes" --> GenBrief["Primary Authors Intent & Invariant Brief"]
 
     subgraph ReviewLoop ["Fresh-Eyed Plan Review Loop (Max 5 Rounds)"]
-        GenBrief --> SpawnFresh["Spawn Brand-New Ephemeral Subagent (Blank Context)"]
+        GenBrief --> SpawnFresh["Spawn Brand-New Ephemeral Read-Only Subagent (Blank Context)"]
         SpawnFresh --> ReviewPass["Reviewer Audits Strictly Against 3 Universal Axes + Optional Axis 4:<br/>1. System Invariants, ADTs & Resource Bounds (CPU/Mem/Disk/Net)<br/>2. Failure Domains, State Integrity & Recovery<br/>3. Inner/Outer Boundary & Surface Contract Parity<br/>4. Optional Project-Defined Axis (AGENTS.md Section 5)"]
         ReviewPass --> Verdict{"Blocking Violations Found?"}
 
@@ -53,7 +53,7 @@ flowchart TD
 2. **Axis 2 — Failure Domains, State Integrity & Recovery**:
    - Behavior under corrupted/truncated inputs, invalid IDs/bounds, partial writes, cancellations, concurrent races, and atomic rollback strategies.
 3. **Axis 3 — Inner/Outer Boundary & Surface Contract Parity**:
-   - **Clean-Room Boundary (`INV-BOUNDARY-1` & `INV-BOUNDARY-2`)**: Zero project code in the outer harness, and zero agentic/host leaks (`AGENTS.md`, `.agents/`, `harness.env`, `docs/internal/`, `/home/...`) inside `INNER_DIR`.
+   - **Clean-Room Boundary (`INV-BOUNDARY-1` & `INV-BOUNDARY-2`)**: Zero project code in the outer harness, and zero agentic/host leaks (`AGENTS.md`, `CLAUDE.md`, `.agents/`, `.claude/`, `.opencode/`, `harness.env`, `docs/internal/`, `/home/...`) inside `INNER_DIR`.
    - **Contract Parity**: Ensuring changes across CLI / API / TypeScript frontend remain coherent and respect the task's `backwards_compatible` flag without unintended breaking changes to persisted schemas or public APIs.
 4. **Axis 4 (Optional, Project-Defined) — Domain Invariants (`AGENTS.md` Section 5)**:
    - Check `AGENTS.md` Section 5 ("Project-Defined Review Axis") and `docs/internal/invariants.md` (`INV-DOMAIN-*`). If project-defined domain rules are declared, enforce them strictly as Axis 4; if none are declared, mark Axis 4 `N/A (Not Configured)`.
@@ -75,19 +75,51 @@ flowchart TD
 ## 2. Step-by-Step Execution Protocol
 
 ### Step 1: Pre-Flight Plan & Reference Census Check
-1. Verify the target **Implementation Plan** artifact exists in `<appDataDir>/brain/<conversation-id>/<plan-name>.md` (or `.plan.md` in the worktree).
+1. Verify the target **Implementation Plan** artifact exists in `.scratch/plan-<lane>.md` (gitignored, or the active session plan path).
 2. Before launching Round 1, run an exhaustive codebase search (`rg`) for every retired, signature-changed, or semantically migrated symbol, constant, or ambient pattern. Populate module and public-surface scope from that search.
 3. Ensure the plan follows the **Invariant-First** structure without pseudo-code or raw diffs.
 
-### Step 2: Launch Fresh Plan Reviewer Subagent
-Spawn a brand-new ephemeral subagent using `invoke_subagent`:
+### Step 2: Launch Fresh Read-Only Plan Reviewer Subagent
+Spawn a **brand-new, blank-context read-only subagent** using your runtime's subagent tool:
+* **Antigravity**: `invoke_subagent` (`TypeName: "research"`, `Model: "inherit"`, `Workspace: "inherit"`)
+* **OpenCode**: `task` (`subagent_type: "explore"` or read-only agent)
+* **Claude Code**: `Agent` (`subagent_type: "Explore"` or read-only agent)
 
-```json
-{
-  "TypeName": "research",
-  "Role": "Fresh-Eyed Plan Reviewer",
-  "Model": "inherit",
-  "Workspace": "inherit",
-  "Prompt": "You are an independent Principal Systems Architect conducting an Invariant & Boundary audit of a proposed Implementation Plan.\n\n### THE DETERMINISTIC WALL & SCOPE RULES (MANDATORY)\n1. DETERMINISTIC WALL: You are STRICTLY FORBIDDEN from commenting on anything caught by compilers, type checkers, linters (Clippy/Biome/tsc), formatters, or test runners. Do NOT verify line numbers, function signatures, type mismatches, or syntax.\n2. NO PSEUDO-CODE, NAMING DELIBERATIONS, OR MECHANICAL CALL-SITE ENUMERATION: Do NOT request code snippets, pseudo-code, variable/function renames, or line-by-line function designs. Respect the Mode-Aware Call-Site Boundary: (a) when a plan retires/alters a typed symbol, do NOT flag omitted mechanical call-sites caught by the compiler; (b) for coexisting APIs (`backwards_compatible: true`), untyped boundaries, or ambient patterns governed by a quantified invariant, you MAY flag omitted public surfaces or subsystem split-brain, but NEVER request private intra-module helper lists.\n3. BLOCKING VIOLATIONS ONLY (NO P2/P3 NITS): Report ONLY Blocking Violations across the audit axes below. If zero blocking violations exist, immediately issue APPROVED.\n4. READ-ONLY BOUNDARY CHECK: Use read tools solely to verify existing contracts, schemas, AGENTS.md Section 5, and docs/internal/invariants.md inside the target worktree. Do NOT edit files.\n5. RESPECT NON-GOALS: Never demand changes that violate declared Non-Goals.\n\n### AUDIT AXES\n1. Axis 1 — System Invariants, Domain ADTs & Resource Bounds (CPU/Mem/Disk/Net)\n2. Axis 2 — Failure Domains, State Integrity & Recovery\n3. Axis 3 — Inner/Outer Boundary (INV-BOUNDARY-1/2) & Surface Contract Parity\n4. Axis 4 (Optional, Project-Defined) — Check AGENTS.md Section 5 and docs/internal/invariants.md (`INV-DOMAIN-*`). Enforce if configured; otherwise mark `N/A (Not Configured)`.\n\n### INPUT DATA\nTarget Worktree: <Worktree Path>\nBackwards Compatible: <true | false>\nIntent & Context Brief: <Intent Brief>\nImplementation Plan Path: <Path to plan markdown file>\n\n### OUTPUT REPORT FORMAT\n## 1. Audit Verdict: [APPROVED | CHANGES_REQUESTED]\n## 2. Invariant Audit Matrix\n| Audit Axis | Status [Pass | Blocking Violation | N/A] | Assessment |\n| :--- | :--- | :--- |\n| Axis 1: System Invariants, ADTs & Resource Bounds | [Pass / Blocking Violation] | [Concise assessment] |\n| Axis 2: Failure Domains, State Integrity & Recovery | [Pass / Blocking Violation] | [Concise assessment] |\n| Axis 3: Inner/Outer Boundary & Surface Parity | [Pass / Blocking Violation] | [Concise assessment] |\n| Axis 4: Project-Defined Domain Invariants | [Pass / Blocking Violation / N/A] | [Concise assessment] |\n## 3. Blocking Violations (Omit if APPROVED)\n- [Axis 1 / 2 / 3 / 4]: Exact invariant gap, resource trap, failure hazard, or contract break.\n## 4. Required Plan Remediation (Omit if APPROVED)\n- Concise invariant or boundary specification required to resolve each blocker."
-}
+Pass the following prompt verbatim (filling in `<...>`):
+
+```markdown
+You are an independent Principal Systems Architect conducting an Invariant & Boundary audit of a proposed Implementation Plan.
+
+### THE DETERMINISTIC WALL & SCOPE RULES (MANDATORY)
+1. DETERMINISTIC WALL: You are STRICTLY FORBIDDEN from commenting on anything caught by compilers, type checkers, linters (Clippy/Biome/tsc), formatters, or test runners. Do NOT verify line numbers, function signatures, type mismatches, or syntax.
+2. NO PSEUDO-CODE, NAMING DELIBERATIONS, OR MECHANICAL CALL-SITE ENUMERATION: Do NOT request code snippets, pseudo-code, variable/function renames, or line-by-line function designs. Respect the Mode-Aware Call-Site Boundary: (a) when a plan retires/alters a typed symbol, do NOT flag omitted mechanical call-sites caught by the compiler; (b) for coexisting APIs (`backwards_compatible: true`), untyped boundaries, or ambient patterns governed by a quantified invariant, you MAY flag omitted public surfaces or subsystem split-brain, but NEVER request private intra-module helper lists.
+3. BLOCKING VIOLATIONS ONLY (NO P2/P3 NITS): Report ONLY Blocking Violations across the audit axes below. If zero blocking violations exist, immediately issue APPROVED.
+4. READ-ONLY BOUNDARY CHECK: Use read tools solely to verify existing contracts, schemas, AGENTS.md Section 5, and docs/internal/invariants.md inside the target worktree. Do NOT edit files.
+5. RESPECT NON-GOALS: Never demand changes that violate declared Non-Goals.
+
+### AUDIT AXES
+1. Axis 1 — System Invariants, Domain ADTs & Resource Bounds (CPU/Mem/Disk/Net)
+2. Axis 2 — Failure Domains, State Integrity & Recovery
+3. Axis 3 — Inner/Outer Boundary (INV-BOUNDARY-1/2) & Surface Contract Parity
+4. Axis 4 (Optional, Project-Defined) — Check AGENTS.md Section 5 and docs/internal/invariants.md (`INV-DOMAIN-*`). Enforce if configured; otherwise mark `N/A (Not Configured)`.
+
+### INPUT DATA
+Target Worktree: <Worktree Path>
+Backwards Compatible: <true | false>
+Intent & Context Brief: <Intent Brief>
+Implementation Plan Path: <Path to plan markdown file>
+
+### OUTPUT REPORT FORMAT
+## 1. Audit Verdict: [APPROVED | CHANGES_REQUESTED]
+## 2. Invariant Audit Matrix
+| Audit Axis | Status [Pass | Blocking Violation | N/A] | Assessment |
+| :--- | :--- | :--- |
+| Axis 1: System Invariants, ADTs & Resource Bounds | [Pass / Blocking Violation] | [Concise assessment] |
+| Axis 2: Failure Domains, State Integrity & Recovery | [Pass / Blocking Violation] | [Concise assessment] |
+| Axis 3: Inner/Outer Boundary & Surface Parity | [Pass / Blocking Violation] | [Concise assessment] |
+| Axis 4: Project-Defined Domain Invariants | [Pass / Blocking Violation / N/A] | [Concise assessment] |
+## 3. Blocking Violations (Omit if APPROVED)
+- [Axis 1 / 2 / 3 / 4]: Exact invariant gap, resource trap, failure hazard, or contract break.
+## 4. Required Plan Remediation (Omit if APPROVED)
+- Concise invariant or boundary specification required to resolve each blocker.
 ```

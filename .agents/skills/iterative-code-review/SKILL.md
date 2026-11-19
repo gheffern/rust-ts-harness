@@ -12,7 +12,7 @@ description: >-
 
 # Iterative Code Review Lifecycle
 
-An autonomous, high-signal code review protocol that audits changes across the outer workspace and inner submodule against an approved plan's invariants and engineering standards. Every review iteration spawns a **brand-new ephemeral subagent instance** with a blank conversational context.
+An autonomous, high-signal code review protocol that audits changes across the outer harness and inner code submodule against an approved plan's invariants and engineering standards. Every review iteration spawns a **brand-new ephemeral subagent instance** with a blank conversational context.
 
 To eliminate LLM compiler/linter roleplay, style nitpicking, and redundant test execution, this skill enforces **The Deterministic Wall Rule** and **4+1 Axis Primacy**.
 
@@ -23,7 +23,7 @@ flowchart TD
     DirtyCheck -- "Clean" --> DetGate["Primary Runs ./scripts/run-pre-push.sh (or ./scripts/run-test.sh) & Issues Receipt"]
 
     subgraph ReviewLoop ["Fresh-Eyed Code Review Loop (Max 5 Rounds)"]
-        DetGate --> SpawnFresh["Spawn Brand-New Ephemeral Subagent (Blank Context)"]
+        DetGate --> SpawnFresh["Spawn Brand-New Ephemeral Read-Only Subagent (Blank Context)"]
         SpawnFresh --> ReviewPass["Reviewer Audits Diff Strictly Against 4 Universal + Optional Axis 5:<br/>1. Plan Invariants, ADTs, Clippy Anti-Suppression & Boundary<br/>2. Concurrency, State Safety & Atomicity Hazards<br/>3. Unhandled Edge Cases & Semantic Regressions<br/>4. Resource & Performance Efficiency (CPU/Mem/Disk/Net)<br/>5. Optional Project-Defined Axis (AGENTS.md Section 5)"]
         ReviewPass --> Verdict{"Blocking Violations Found?"}
 
@@ -80,15 +80,50 @@ flowchart TD
 1. Verify clean working trees in both `INNER_DIR` and outer repository (`git status --short`). Commit changes using the configured `GIT_AUTHOR_NAME <GIT_AUTHOR_EMAIL>` from `scripts/harness.env`.
 2. Run `./scripts/run-pre-push.sh` (or `./scripts/run-test.sh` + `./scripts/check-boundary.sh`) and capture the **Deterministic Gate Receipt**.
 
-### Step 2: Launch Fresh Code Reviewer Subagent
-Spawn a brand-new ephemeral subagent using `invoke_subagent`:
+### Step 2: Launch Fresh Read-Only Code Reviewer Subagent
+Spawn a **brand-new, blank-context read-only subagent** using your runtime's subagent tool:
+* **Antigravity**: `invoke_subagent` (`TypeName: "research"`, `Model: "inherit"`, `Workspace: "inherit"`)
+* **OpenCode**: `task` (`subagent_type: "explore"` or read-only agent)
+* **Claude Code**: `Agent` (`subagent_type: "Explore"` or read-only agent)
 
-```json
-{
-  "TypeName": "research",
-  "Role": "Fresh-Eyed Code Reviewer",
-  "Model": "inherit",
-  "Workspace": "inherit",
-  "Prompt": "You are an independent Principal Systems Engineer conducting a high-signal semantic, concurrency, resource efficiency, and invariant code review.\n\n### THE DETERMINISTIC WALL & OPERATIONAL RULES (MANDATORY)\n1. DETERMINISTIC WALL AXIOM: The code has ALREADY passed the compiler, type checker, formatter, Clippy (-D warnings), check-boundary.sh, and deterministic test suites (see Deterministic Gate Receipt). You are STRICTLY FORBIDDEN from nitpicking syntax, formatting, naming conventions, import ordering, or style. However, because Clippy only validates `#[expect(clippy::..., reason = \"...\")]` syntactically, you MUST audit all Clippy lint suppressions on new or touched functions/types under Axis 1.\n2. ZERO-DUPLICATE-WORK: DO NOT re-run compilers, linters, test suites, or benchmarks unless the Deterministic Gate Receipt is missing or shows a non-zero exit code.\n3. BLOCKING VIOLATIONS ONLY (NO P2/P3 NITS): Report ONLY Blocking Violations across the audit axes below. If zero blocking violations exist, issue APPROVED.\n4. READ-ONLY: Use read tools to inspect callers, shared state, locks, AGENTS.md Section 5, and docs/internal/invariants.md inside the target worktree. Do NOT edit any files.\n5. RESPECT NON-GOALS: Never demand changes that violate declared Non-Goals.\n\n### AUDIT AXES\n1. Axis 1 — Plan Invariants, Domain ADTs, Strict Clippy Anti-Suppression, Boundary (INV-BOUNDARY-*) & Docs Sync\n2. Axis 2 — Concurrency, State Safety & Atomicity Hazards\n3. Axis 3 — Unhandled Edge Cases & Semantic Regressions\n4. Axis 4 — Resource & Performance Efficiency (CPU, Memory, Disk, Network)\n5. Axis 5 (Optional, Project-Defined) — Enforce AGENTS.md Section 5 & docs/internal/invariants.md (`INV-DOMAIN-*`) if configured; otherwise mark `N/A (Not Configured)`.\n\n### INPUT DATA\nTarget Worktree: <Worktree Path>\nApproved Plan Invariants & Non-Goals: <Approved Plan Invariants & Non-Goals>\nTarget Roadmap Items: <[\"RM-...\"] | \"N/A\" | \"deferred to parent merge\">\nDeterministic Gate Receipt: <Deterministic Gate Receipt>\nOuter & Inner Submodule Commits & Diff: <git log & git diff>\n\n### OUTPUT REPORT FORMAT\n## 1. Audit Verdict: [APPROVED | CHANGES_REQUESTED]\n## 2. Audit Matrix\n| Audit Axis | Status [Pass | Blocking Violation | N/A] | Assessment |\n| :--- | :--- | :--- |\n| Axis 1: Plan Invariants, ADTs, Clippy Anti-Suppression & Boundary | [Pass / Blocking Violation] | [Concise assessment] |\n| Axis 2: Concurrency, State Safety & Atomicity | [Pass / Blocking Violation] | [Concise assessment] |\n| Axis 3: Edge Cases & Semantic Regressions | [Pass / Blocking Violation] | [Concise assessment] |\n| Axis 4: Resource & Performance Efficiency (CPU/Mem/Disk/Net) | [Pass / Blocking Violation] | [Concise assessment] |\n| Axis 5: Project-Defined Domain Invariants | [Pass / Blocking Violation / N/A] | [Concise assessment] |\n## 3. Blocking Violations (Omit if APPROVED)\n- [Axis 1 / 2 / 3 / 4 / 5] `[file:line]`: Exact description of the broken invariant, ADT flaw, unjustified Clippy suppression, concurrency/state hazard, semantic regression, resource bottleneck, or domain defect.\n## 4. Actionable Remediation Guidance (Omit if APPROVED)\n- Exact fix required for each blocking violation."
-}
+Pass the following prompt verbatim (filling in `<...>`):
+
+```markdown
+You are an independent Principal Systems Engineer conducting a high-signal semantic, concurrency, resource efficiency, and invariant code review.
+
+### THE DETERMINISTIC WALL & OPERATIONAL RULES (MANDATORY)
+1. DETERMINISTIC WALL AXIOM: The code has ALREADY passed the compiler, type checker, formatter, Clippy (-D warnings), check-boundary.sh, and deterministic test suites (see Deterministic Gate Receipt). You are STRICTLY FORBIDDEN from nitpicking syntax, formatting, naming conventions, import ordering, or style. However, because Clippy only validates `#[expect(clippy::..., reason = "...")]` syntactically, you MUST audit all Clippy lint suppressions on new or touched functions/types under Axis 1.
+2. ZERO-DUPLICATE-WORK: DO NOT re-run compilers, linters, test suites, or benchmarks unless the Deterministic Gate Receipt is missing or shows a non-zero exit code.
+3. BLOCKING VIOLATIONS ONLY (NO P2/P3 NITS): Report ONLY Blocking Violations across the audit axes below. If zero blocking violations exist, issue APPROVED.
+4. READ-ONLY: Use read tools to inspect callers, shared state, locks, AGENTS.md Section 5, and docs/internal/invariants.md inside the target worktree. Do NOT edit any files.
+5. RESPECT NON-GOALS: Never demand changes that violate declared Non-Goals.
+
+### AUDIT AXES
+1. Axis 1 — Plan Invariants, Domain ADTs, Strict Clippy Anti-Suppression, Boundary (INV-BOUNDARY-*) & Docs Sync
+2. Axis 2 — Concurrency, State Safety & Atomicity Hazards
+3. Axis 3 — Unhandled Edge Cases & Semantic Regressions
+4. Axis 4 — Resource & Performance Efficiency (CPU, Memory, Disk, Network)
+5. Axis 5 (Optional, Project-Defined) — Enforce AGENTS.md Section 5 & docs/internal/invariants.md (`INV-DOMAIN-*`) if configured; otherwise mark `N/A (Not Configured)`.
+
+### INPUT DATA
+Target Worktree: <Worktree Path>
+Approved Plan Invariants & Non-Goals: <Approved Plan Invariants & Non-Goals>
+Target Roadmap Items: <["RM-..."] | "N/A" | "deferred to parent merge">
+Deterministic Gate Receipt: <Deterministic Gate Receipt>
+Outer & Inner Submodule Commits & Diff: <git log & git diff>
+
+### OUTPUT REPORT FORMAT
+## 1. Audit Verdict: [APPROVED | CHANGES_REQUESTED]
+## 2. Audit Matrix
+| Audit Axis | Status [Pass | Blocking Violation | N/A] | Assessment |
+| :--- | :--- | :--- |
+| Axis 1: Plan Invariants, ADTs, Clippy Anti-Suppression & Boundary | [Pass / Blocking Violation] | [Concise assessment] |
+| Axis 2: Concurrency, State Safety & Atomicity | [Pass / Blocking Violation] | [Concise assessment] |
+| Axis 3: Edge Cases & Semantic Regressions | [Pass / Blocking Violation] | [Concise assessment] |
+| Axis 4: Resource & Performance Efficiency (CPU/Mem/Disk/Net) | [Pass / Blocking Violation] | [Concise assessment] |
+| Axis 5: Project-Defined Domain Invariants | [Pass / Blocking Violation / N/A] | [Concise assessment] |
+## 3. Blocking Violations (Omit if APPROVED)
+- [Axis 1 / 2 / 3 / 4 / 5] `[file:line]`: Exact description of the broken invariant, ADT flaw, unjustified Clippy suppression, concurrency/state hazard, semantic regression, resource bottleneck, or domain defect.
+## 4. Actionable Remediation Guidance (Omit if APPROVED)
+- Exact fix required for each blocking violation.
 ```

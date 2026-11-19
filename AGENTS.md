@@ -1,12 +1,12 @@
 # Agentic Assistant Directives & Workspace Rules
 
-This outer repository is a code-free agentic harness (`AGENTS.md`, `.agents/`, `docs/internal/`, `scripts/`) configured via [`scripts/harness.env`](scripts/harness.env). All project code lives inside the inner submodule (`INNER_DIR` in `scripts/harness.env`, default `app/`).
+This outer repository is a code-free, agent-runtime-agnostic harness (`AGENTS.md`, `CLAUDE.md`, `.agents/`, `.claude/skills`, `docs/internal/`, `scripts/`) configured via [`scripts/harness.env`](scripts/harness.env) for Antigravity, OpenCode, Claude Code, and similar coding agents. All project code lives inside the inner submodule (`INNER_DIR` in `scripts/harness.env`, default `app/`).
 
 ## 1. Environment, Tooling & Multi-Agent CPU Lock
 * **Mandatory CPU & Benchmark Lock (`scripts/with-cpu-lock.sh`)**: Always serialize heavy compilations, test suites, E2E audits, and Criterion benchmarks through `./scripts/with-cpu-lock.sh <build|test|bench|e2e> <command...>` (backed by Linux kernel `flock(2)`). Canonical scripts (`./scripts/run-test.sh`, `./scripts/run-pre-push.sh`, `./scripts/run-bench.sh`, `./scripts/run-e2e.sh`) acquire this lock automatically.
 * **Host-First Execution (Optional Container)**: Scripts run natively on the host by default (automatically enabling `sccache` and `mold` when installed). Pass `--container` to execute inside `CONTAINER_IMAGE` (configured in `scripts/harness.env`, default `localhost/rust-ts-harness-toolchain:latest`, auto-built from [`docker/toolchain.Containerfile`](docker/toolchain.Containerfile) via `./scripts/build-toolchain.sh`).
 * **Outer Harness vs. Inner Code Repository**:
-  1. **Outer Harness (this repo)**: Contains `AGENTS.md`, `.agents/`, `docs/internal/`, and `scripts/` — **no project source code** (`INV-BOUNDARY-1`).
+  1. **Outer Harness (this repo)**: Contains `AGENTS.md`, `CLAUDE.md`, `.agents/`, `.claude/skills`, `docs/internal/`, and `scripts/` — **no project source code** (`INV-BOUNDARY-1`).
   2. **Inner Code Submodule (`INNER_DIR`, default `app/`)**: Contains the Rust + TypeScript project code (`Cargo.toml`, `crates/*`, `web/`) — **kept 100% free of agentic files and developer host paths** (`INV-BOUNDARY-2`).
 
 ## 2. Git, Submodule & Clean-Room Boundary

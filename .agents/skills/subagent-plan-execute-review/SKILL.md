@@ -1,21 +1,31 @@
 ---
 name: subagent-plan-execute-review
-description: Structured autonomous workflow for executing a task brief or requirement set either inline on the main thread or via delegated implementation subagents. Enforces mandatory user-sourced backwards_compatible and execution_mode (main_thread | subagent) flags via ask_question, isolated NVMe worktree execution, Invariant-First plan drafting, iterative-plan-review (max 5 rounds), scoped baseline vs. delta benchmarking (workspace-bench), deterministic gate verification (workspace-test / workspace-pre-push), iterative-code-review (max 5 rounds), and a 6-part Final Handoff Receipt.
+description: Structured autonomous workflow for executing a task brief or requirement set either inline on the main thread or via delegated implementation subagents. Enforces mandatory user-sourced backwards_compatible and execution_mode (main_thread | subagent) flags, isolated NVMe worktree execution, Invariant-First plan drafting, iterative-plan-review (max 5 rounds), scoped baseline vs. delta benchmarking (workspace-bench), deterministic gate verification (workspace-test / workspace-pre-push), iterative-code-review (max 5 rounds), and a 6-part Final Handoff Receipt.
 ---
 
 # Plan-Execute-Review Skill (`subagent-plan-execute-review`)
 
-This skill defines the end-to-end execution contract for executing a scoped engineering task brief or set of requirements either **inline on the Main Thread** (`execution_mode: "main_thread"`, avoiding cold context-rebuilding overhead when the main thread already holds warm file context) or via one or more **Implementation Subagents** (`execution_mode: "subagent"`, `invoke_subagent` with `TypeName: "self"`, ideal for multi-lane parallel waves or large cold-context tasks).
+This skill defines the end-to-end execution contract for executing a scoped engineering task brief or set of requirements either **inline on the Main Thread** (`execution_mode: "main_thread"`, avoiding cold context-rebuilding overhead when the main thread already holds warm file context) or via one or more **Implementation Subagents** (`execution_mode: "subagent"`, ideal for multi-lane parallel waves or large cold-context tasks).
 
-Both modes execute the **exact same 6-phase verification pipeline** inside an isolated NVMe worktree—including Invariant-First planning, [`iterative-plan-review`](../iterative-plan-review/SKILL.md) (via a fresh-eyed `research` reviewer subagent), [`workspace-bench`](../workspace-bench/SKILL.md) baseline/delta verification, [`workspace-test`](../workspace-test/SKILL.md) / [`workspace-pre-push`](../workspace-pre-push/SKILL.md) deterministic gates, [`iterative-code-review`](../iterative-code-review/SKILL.md) (via a fresh-eyed `research` reviewer subagent), and a 6-part Final Handoff Receipt.
+Both modes execute the **exact same 6-phase verification pipeline** inside an isolated NVMe worktree—including Invariant-First planning, [`iterative-plan-review`](../iterative-plan-review/SKILL.md) (via a fresh-eyed read-only reviewer subagent), [`workspace-bench`](../workspace-bench/SKILL.md) baseline/delta verification, [`workspace-test`](../workspace-test/SKILL.md) / [`workspace-pre-push`](../workspace-pre-push/SKILL.md) deterministic gates, [`iterative-code-review`](../iterative-code-review/SKILL.md) (via a fresh-eyed read-only reviewer subagent), and a 6-part Final Handoff Receipt.
+
+## Runtime Mapping (Antigravity / OpenCode / Claude Code)
+
+| Capability | Antigravity | OpenCode | Claude Code |
+| :--- | :--- | :--- | :--- |
+| **Ask User Questions** | `ask_question` | `question` (or plain prompt) | `AskUserQuestion` (or plain prompt) |
+| **Spawn Worker Subagent** (`execution_mode: "subagent"`) | `invoke_subagent` (`TypeName: "self"`) | `task` (general worker agent) | `Agent` (`subagent_type: "general-purpose"`) |
+| **Spawn Read-Only Reviewer** (`iterative-*-review`) | `invoke_subagent` (`TypeName: "research"`) | `task` (`subagent_type: "explore"`) | `Agent` (`subagent_type: "Explore"`) |
+| **Multi-Lane Completion Barrier** | `manage_subagents(Action: "list")` before declaring done | Await all spawned `task` handles before declaring done | Await all spawned `Agent` handles before declaring done |
+| **Ephemeral Plans & Logs** | `.scratch/plan-<lane>.md` | `.scratch/plan-<lane>.md` | `.scratch/plan-<lane>.md` |
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│ PARENT / MAIN AGENT PRE-FLIGHT (`ask_question` if either flag is missing)    │
+│ PARENT / MAIN AGENT PRE-FLIGHT (ask user if either flag is missing)          │
 │   1. Obtain `backwards_compatible: true | false` from User Input (mandatory) │
 │   2. Obtain `execution_mode: "main_thread" | "subagent"` from User Input     │
 │   3. Provision NVMe worktree(s) `.worktrees/<lane-name>`                     │
-│   4. If `subagent`: populate Brief & spawn `self` subagent(s)                │
+│   4. If `subagent`: populate Brief & spawn worker subagent(s)                │
 │      If `main_thread`: execute Phases 0..6 directly on the main thread       │
 └──────────────────────────────────────┬───────────────────────────────────────┘
                                        ▼
@@ -29,7 +39,7 @@ Both modes execute the **exact same 6-phase verification pipeline** inside an is
 ┌──────────────────────────────────────────────────────────────────────────────┐
 │ PHASE 1 & 2: INVARIANT-FIRST PLAN DRAFTING & `iterative-plan-review`         │
 │   • Draft plan enforcing `backwards_compatible` & boundary/resource rules    │
-│   • Spawn `Fresh-Eyed Plan Reviewer` (`research` subagent, max 5 rounds)     │
+│   • Spawn `Fresh-Eyed Plan Reviewer` (read-only subagent, max 5 rounds)      │
 │   • Remediate blocking findings (or return `ESCALATED` if unresolved @ R5)   │
 └──────────────────────────────────────┬───────────────────────────────────────┘
                                        ▼
@@ -43,15 +53,15 @@ Both modes execute the **exact same 6-phase verification pipeline** inside an is
                                        ▼
 ┌──────────────────────────────────────────────────────────────────────────────┐
 │ PHASE 5 & 6: `iterative-code-review` & 6-PART FINAL HANDOFF RECEIPT          │
-│   • Spawn `Fresh-Eyed Code Reviewer` (`research` subagent, max 5 rounds)     │
+│   • Spawn `Fresh-Eyed Code Reviewer` (read-only subagent, max 5 rounds)      │
 │   • If blockers found: fix -> re-verify -> commit -> next round (up to R5)   │
 │   • Emit structured 6-Part Final Handoff Receipt                             │
 └──────────────────────────────────────┬───────────────────────────────────────┘
                                        ▼
 ┌──────────────────────────────────────────────────────────────────────────────┐
 │ MULTI-LANE COMPLETION BARRIER (`execution_mode: "subagent"`)                 │
-│   • Subagents finish out of order; on EVERY wakeup call `manage_subagents`   │
-│   • Check status of ALL lanes before merging or declaring work done          │
+│   • Subagents may finish out of order; track ALL spawned lanes               │
+│   • Never merge or declare work done until ALL lanes return receipts         │
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -59,14 +69,14 @@ Both modes execute the **exact same 6-phase verification pipeline** inside an is
 
 ## 1. Mandatory Inputs: `backwards_compatible` & `execution_mode` Contracts
 
-### 1.1 Pre-Flight Gate (`ask_question` Required When Unspecified), Worktree Lifecycle & Multi-Lane Barrier
+### 1.1 Pre-Flight Gate, Worktree Lifecycle & Multi-Lane Barrier
 * **Never Guess `backwards_compatible` or `execution_mode`**: Before starting Phase 0 or spawning any subagent under this skill, the agent **MUST** have explicit answers from the user for **both** mandatory flags:
   1. `backwards_compatible`: `true` (preserve existing persisted formats/schemas and additive-only public APIs) or `false` (clean-slate replacement permitted).
-  2. `execution_mode`: `"main_thread"` (execute Phases 0–6 directly on the main thread while still spawning `research` subagents for `iterative-plan-review` and `iterative-code-review`) or `"subagent"` (delegate Phases 0–6 to background `self` implementation subagent(s)).
-  * **Mandatory `ask_question` Prompt**: If the user has not explicitly stated either `backwards_compatible` or `execution_mode` in their prompt, call `ask_question` before creating worktrees or drafting plans. Place `(Recommended)` on `"main_thread"` for single-lane tasks with warm file context, or on `"subagent"` for multi-lane parallel waves or large cold-context tasks.
+  2. `execution_mode`: `"main_thread"` (execute Phases 0–6 directly on the main thread while still spawning fresh read-only subagents for `iterative-plan-review` and `iterative-code-review`) or `"subagent"` (delegate Phases 0–6 to worker subagent(s)).
+  * **Mandatory User Prompt**: If the user has not explicitly stated either `backwards_compatible` or `execution_mode` in their prompt, ask the user via your interactive question tool (e.g., `ask_question`, `AskUserQuestion`, `question`) or directly in plain text before creating worktrees or drafting plans. Place `(Recommended)` on `"main_thread"` for single-lane tasks with warm file context, or on `"subagent"` for multi-lane parallel waves or large cold-context tasks.
 * **Parent-Owned NVMe Worktree Lifecycle**:
   * Source `scripts/harness.env` to read `INNER_DIR`, `GIT_AUTHOR_NAME`, and `GIT_AUTHOR_EMAIL`.
-  * Provision each lane's NVMe worktree `<repo-root>/.worktrees/<lane-name>` on branch `feature/<lane-name>` **before** starting Phase 0 or calling `invoke_subagent`:
+  * Provision each lane's NVMe worktree `<repo-root>/.worktrees/<lane-name>` on branch `feature/<lane-name>` **before** starting Phase 0 or spawning worker subagents:
     ```bash
     git worktree add -b "feature/<lane-name>" ".worktrees/<lane-name>" main
     git -C ".worktrees/<lane-name>" -c protocol.file.allow=always submodule update --init --recursive
@@ -78,9 +88,9 @@ Both modes execute the **exact same 6-phase verification pipeline** inside an is
     git -C ".worktrees/<lane-name>" config user.name "${GIT_AUTHOR_NAME}"
     git -C ".worktrees/<lane-name>" config user.email "${GIT_AUTHOR_EMAIL}"
     ```
-  * When `execution_mode: "subagent"`, use [`references/subagent-brief-template.md`](references/subagent-brief-template.md) to pass the pre-provisioned `worktree_path`, `backwards_compatible`, and `execution_mode` to each subagent.
+  * When `execution_mode: "subagent"`, use [`references/subagent-brief-template.md`](references/subagent-brief-template.md) to pass the pre-provisioned `worktree_path`, `backwards_compatible`, and `execution_mode` to each worker subagent.
 * **Mandatory Multi-Lane Completion Barrier (Out-of-Order Wakeups in `subagent` Mode)**:
-  * On every subagent wakeup, call `manage_subagents(Action: "list")` and check the status of **all** spawned lanes before merging branches, removing worktrees, or declaring the overall task complete.
+  * When multiple implementation lanes run asynchronously, verify that **all** spawned lanes have completed and returned their Final Handoff Receipt before merging branches, removing worktrees, or declaring the overall task complete.
 
 ### 1.2 Fail-Fast Gate
 * On startup of Phase 0, verify `backwards_compatible` (`true` or `false`), `execution_mode` (`"main_thread"` or `"subagent"`), and an existing `worktree_path` are explicitly set.
@@ -120,7 +130,7 @@ Both modes execute the **exact same 6-phase verification pipeline** inside an is
 3. Read target files and tests. If touching a benchmarked hot path (and not provided pre-captured metrics), capture a scoped baseline using `./scripts/run-bench.sh -C <worktree_path> -s <suite> -f "<filter>"`. (For cold/unbenchmarked paths, record `N/A — cold path`.)
 
 ### Phase 1: Draft Invariant-First Implementation Plan
-Run an exhaustive search (`rg`) for every retired, signature-changed, or migrated symbol or ambient pattern up front. Write the plan to `<appDataDir>/brain/<conversation-id>/plan-<lane-name>.md` (or `<worktree_path>/.plan.md`, removing `.plan.md` before committing).
+Run an exhaustive search (`rg`) for every retired, signature-changed, or migrated symbol or ambient pattern up front. Write the plan to `.scratch/plan-<lane-name>.md` (gitignored; or `<worktree_path>/.plan.md`, removing `.plan.md` before committing).
 
 Per [`iterative-plan-review`](../iterative-plan-review/SKILL.md), the plan **MUST NOT** contain code snippets or pseudo-code, and **MUST** contain:
 1. **Data & State Model (ADTs & Schemas)**
@@ -131,7 +141,7 @@ Per [`iterative-plan-review`](../iterative-plan-review/SKILL.md), the plan **MUS
 6. **Scoped File Delta Map & Migration Totality** (distinguishing **Compiler-Enforced Retirements** from **Coexisting APIs / Ambient Patterns**)
 
 ### Phase 2: Execute `iterative-plan-review` (Max 5 Rounds)
-Run [`iterative-plan-review`](../iterative-plan-review/SKILL.md) with an ephemeral `research` subagent (`Role: "Fresh-Eyed Plan Reviewer"`). Remediate blocking findings across up to 5 rounds; return `ESCALATED` if unresolved at Round 5 or if a conflict with the brief occurs.
+Run [`iterative-plan-review`](../iterative-plan-review/SKILL.md) with an ephemeral read-only reviewer subagent (`Fresh-Eyed Plan Reviewer`). Remediate blocking findings across up to 5 rounds; return `ESCALATED` if unresolved at Round 5 or if a conflict with the brief occurs.
 
 ### Phase 3: Implementation & Inner Verification Loop
 1. Uphold `unsafe_code = "deny"`, `clippy::all`, `clippy::pedantic`, `clippy::perf`, zero production `unwrap_used`/`expect_used`, and the Boy Scout Anti-Suppression Rule.
@@ -144,7 +154,7 @@ Run [`iterative-plan-review`](../iterative-plan-review/SKILL.md) with an ephemer
 3. Remove any temporary `.plan.md` from the worktree, commit `INNER_DIR` and outer worktree cleanly (`git status --porcelain` empty), and sync `INNER_DIR` to `INNER_LOCAL_UPSTREAM` if configured.
 
 ### Phase 5: Execute `iterative-code-review` (Max 5 Rounds)
-Run [`iterative-code-review`](../iterative-code-review/SKILL.md) with an ephemeral `research` subagent (`Role: "Fresh-Eyed Code Reviewer"`), passing the worktree path, commit range, approved plan path, `backwards_compatible`, optional `roadmap_items`, and the Deterministic Gate Receipt. Fix any blockers, re-run the deterministic gate, commit fixes, and spawn a fresh reviewer for the next round (up to Round 5).
+Run [`iterative-code-review`](../iterative-code-review/SKILL.md) with an ephemeral read-only reviewer subagent (`Fresh-Eyed Code Reviewer`), passing the worktree path, commit range, approved plan path, `backwards_compatible`, optional `roadmap_items`, and the Deterministic Gate Receipt. Fix any blockers, re-run the deterministic gate, commit fixes, and spawn a fresh reviewer for the next round (up to Round 5).
 
 ### Phase 6: Structured 6-Part Final Handoff Receipt
 
@@ -167,7 +177,7 @@ Run [`iterative-code-review`](../iterative-code-review/SKILL.md) with an ephemer
 ### 3. Plan Review Receipt (`iterative-plan-review`)
 * **Plan Artifact**: `<path-to-plan.md>`
 * **Rounds Used**: `1`..`5`
-* **Reviewer Conversation ID(s)**: `<uuid>`
+* **Reviewer Identifier(s)**: `<id>`
 * **Final Plan Verdict**: `APPROVED`
 
 ### 4. Benchmark Baseline vs. Delta Table (`workspace-bench`)
@@ -184,6 +194,6 @@ Run [`iterative-code-review`](../iterative-code-review/SKILL.md) with an ephemer
 
 ### 6. Code Review Verdict (`iterative-code-review`)
 * **Rounds Used**: `1`..`5`
-* **Reviewer Conversation ID(s)**: `<uuid>`
+* **Reviewer Identifier(s)**: `<id>`
 * **Final Code Review Verdict**: `APPROVED` (or remaining blocker details if `ESCALATED`)
 ```

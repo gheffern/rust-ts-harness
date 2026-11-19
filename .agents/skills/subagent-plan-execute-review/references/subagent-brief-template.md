@@ -1,11 +1,11 @@
 # Task Brief Template (`subagent-plan-execute-review`)
 
-Parent / Main agents MUST use this template when executing a task under [`subagent-plan-execute-review`](../SKILL.md) (either inline on the main thread when `execution_mode: "main_thread"` or via `invoke_subagent` with `TypeName: "self"`, `Model: "inherit"` when `execution_mode: "subagent"`).
+Parent / Main agents MUST use this template when executing a task under [`subagent-plan-execute-review`](../SKILL.md) (either inline on the main thread when `execution_mode: "main_thread"` or via a delegated worker subagent when `execution_mode: "subagent"`).
 
 > **Parent / Main Agent Pre-Flight, Worktree Lifecycle & Multi-Lane Barrier Rules**:
-> 1. **Never guess or default `backwards_compatible` or `execution_mode`**: Obtain both settings (`backwards_compatible: true | false` and `execution_mode: "main_thread" | "subagent"`) from the user via `ask_question` before provisioning worktrees or starting Phase 0.
+> 1. **Never guess or default `backwards_compatible` or `execution_mode`**: Obtain both settings (`backwards_compatible: true | false` and `execution_mode: "main_thread" | "subagent"`) from the user via your question tool or direct prompt before provisioning worktrees or starting Phase 0.
 > 2. **Parent / Main Agent owns worktree creation and cleanup**: Sequentially provision each lane's NVMe worktree `<repo-root>/.worktrees/<lane_name>` on branch `feature/<lane_name>` (initializing submodules and setting git author from `scripts/harness.env`).
-> 3. **Always check all lanes before declaring work done (`subagent` mode)**: On every subagent wakeup, call `manage_subagents(Action: "list")` and verify the status of all spawned lanes before merging or declaring completion.
+> 3. **Always verify all lanes before declaring work done (`subagent` mode)**: Await and verify the status of all spawned lanes before merging or declaring completion.
 
 ---
 

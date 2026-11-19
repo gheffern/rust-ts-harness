@@ -4,8 +4,8 @@ Code-free Linux + Rust + TypeScript agentic harness that wraps an inner project 
 
 ## Outer Harness Structure
 
-- `AGENTS.md`: Workspace rules, lint/anti-suppression policy, worktree & CPU-lock rules, and optional Project-Defined Review Axis.
-- `.agents/`: Portable workflow skills (`subagent-plan-execute-review`, `iterative-plan-review`, `iterative-code-review`, `ideate-plan-execute-review`, `workspace-*`) and subagent specs.
+- `AGENTS.md` / `CLAUDE.md`: Workspace rules, lint/anti-suppression policy, worktree & CPU-lock rules, and optional Project-Defined Review Axis (compatible with Antigravity, OpenCode, and Claude Code).
+- `.agents/` (with `.claude/skills` symlink): Portable workflow skills (`subagent-plan-execute-review`, `iterative-plan-review`, `iterative-code-review`, `ideate-plan-execute-review`, `workspace-*`) and subagent role prompts.
 - `docs/internal/`: Templates for `invariants.md`, `roadmap/`, `plans/`, and `evidence/`.
 - `scripts/`: `init.sh`, `harness.env`, `build-toolchain.sh`, `with-cpu-lock.sh`, `check-boundary.sh`, `run-test.sh`, `run-pre-push.sh`, `run-bench.sh`, `run-e2e.sh`, `run-pr.sh`.
 - `docker/toolchain.Containerfile`: Self-contained toolchain container (Rust `clippy`/`rustfmt`/`wasm32`, Node.js 24, `mold`, `sccache`, `wasm-opt`, `cargo-nextest`, `valgrind`, `gh`), auto-built when `--container` is passed.
