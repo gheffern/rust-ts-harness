@@ -30,3 +30,7 @@ Code-free Linux + Rust + TypeScript agentic harness that wraps an inner project 
    ```bash
    ./scripts/run-pre-push.sh --all
    ```
+
+## License
+
+Licensed under the [Apache License, Version 2.0](LICENSE).
