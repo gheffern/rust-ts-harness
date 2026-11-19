@@ -73,7 +73,7 @@ PROJECT_SLUG="${PROJECT_SLUG:-harness}"
 INNER_DIR="${INNER_DIR:-app}"
 TEMPLATE_INNER_DIR="${TEMPLATE_INNER_DIR:-templates/inner-project}"
 WEB_SUBDIR="${WEB_SUBDIR:-}"
-CONTAINER_IMAGE="${CONTAINER_IMAGE:-localhost/rust-toolchain:latest}"
+CONTAINER_IMAGE="${CONTAINER_IMAGE:-localhost/rust-ts-harness-toolchain:latest}"
 
 ACTIVE_INNER_REL=""
 if [[ -d "${TARGET_DIR}/${INNER_DIR}" ]]; then
@@ -137,6 +137,8 @@ if [[ "${USE_CONTAINER}" == "true" ]]; then
   elif ! command -v podman >/dev/null 2>&1; then
     echo "[run-pre-push] ERROR: --container requested but 'podman' is not installed." >&2
     exit 1
+  else
+    "${SCRIPT_DIR}/build-toolchain.sh" --if-missing
   fi
 fi
 
@@ -283,7 +285,7 @@ if [[ "${RUN_WEB}" == "true" && -n "${WEB_REL}" ]]; then
       WEB_CMD="${WEB_CMD} && npx tsc --noEmit"
     fi
     if [[ -x "${TARGET_DIR}/${WEB_REL}/node_modules/.bin/biome" ]] || [[ "${USE_CONTAINER}" == "true" ]]; then
-      WEB_CMD="${WEB_CMD} && (npx --no-install biome check src tests e2e || true)"
+      WEB_CMD="${WEB_CMD} && npx --no-install biome check src tests e2e"
     fi
     WEB_CMD="${WEB_CMD} && npm test && npm run build"
     run_in_env "${WEB_REL}" sh -c "${WEB_CMD}" > "${CURRENT_LOG}" 2>&1

@@ -85,7 +85,7 @@ fi
 PROJECT_SLUG="${PROJECT_SLUG:-harness}"
 INNER_DIR="${INNER_DIR:-app}"
 TEMPLATE_INNER_DIR="${TEMPLATE_INNER_DIR:-templates/inner-project}"
-CONTAINER_IMAGE="${CONTAINER_IMAGE:-localhost/rust-toolchain:latest}"
+CONTAINER_IMAGE="${CONTAINER_IMAGE:-localhost/rust-ts-harness-toolchain:latest}"
 
 ACTIVE_INNER_REL=""
 if [[ -f "${TARGET_DIR}/${INNER_DIR}/Cargo.toml" ]]; then
@@ -107,6 +107,17 @@ LOG_DIR="${LOG_ROOT}/${TIMESTAMP}"
 mkdir -p "${LOG_DIR}"
 ln -sfn "${TIMESTAMP}" "${LOG_ROOT}/latest"
 find "${LOG_ROOT}" -mindepth 1 -maxdepth 1 -type d -name '20[0-9][0-9]*' | sort -r | tail -n +11 | xargs -r rm -rf
+
+if [[ "${USE_CONTAINER}" == "true" ]]; then
+  if [[ -f "/.dockerenv" ]] || [[ -f "/run/.containerenv" ]]; then
+    USE_CONTAINER=false
+  elif ! command -v podman >/dev/null 2>&1; then
+    echo "[run-bench] ERROR: --container requested but 'podman' is not installed." >&2
+    exit 1
+  else
+    "${SCRIPT_DIR}/build-toolchain.sh" --if-missing
+  fi
+fi
 
 run_in_env() {
   if [[ "${USE_CONTAINER}" == "true" ]]; then

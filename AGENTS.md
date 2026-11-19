@@ -4,7 +4,7 @@ This outer repository is a code-free agentic harness (`AGENTS.md`, `.agents/`, `
 
 ## 1. Environment, Tooling & Multi-Agent CPU Lock
 * **Mandatory CPU & Benchmark Lock (`scripts/with-cpu-lock.sh`)**: Always serialize heavy compilations, test suites, E2E audits, and Criterion benchmarks through `./scripts/with-cpu-lock.sh <build|test|bench|e2e> <command...>` (backed by Linux kernel `flock(2)`). Canonical scripts (`./scripts/run-test.sh`, `./scripts/run-pre-push.sh`, `./scripts/run-bench.sh`, `./scripts/run-e2e.sh`) acquire this lock automatically.
-* **Host-First Execution (Optional Container)**: Scripts run natively on the host by default (automatically enabling `sccache` and `mold` when installed). Pass `--container` to execute inside `CONTAINER_IMAGE` (configured in `scripts/harness.env`, default `localhost/rust-toolchain:latest`).
+* **Host-First Execution (Optional Container)**: Scripts run natively on the host by default (automatically enabling `sccache` and `mold` when installed). Pass `--container` to execute inside `CONTAINER_IMAGE` (configured in `scripts/harness.env`, default `localhost/rust-ts-harness-toolchain:latest`, auto-built from [`docker/toolchain.Containerfile`](docker/toolchain.Containerfile) via `./scripts/build-toolchain.sh`).
 * **Outer Harness vs. Inner Code Repository**:
   1. **Outer Harness (this repo)**: Contains `AGENTS.md`, `.agents/`, `docs/internal/`, and `scripts/` — **no project source code** (`INV-BOUNDARY-1`).
   2. **Inner Code Submodule (`INNER_DIR`, default `app/`)**: Contains the Rust + TypeScript project code (`Cargo.toml`, `crates/*`, `web/`) — **kept 100% free of agentic files and developer host paths** (`INV-BOUNDARY-2`).

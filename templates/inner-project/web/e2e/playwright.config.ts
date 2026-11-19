@@ -14,10 +14,7 @@ export default defineConfig({
   expect: {
     timeout: 15_000,
   },
-  reporter: [
-    ["list"],
-    ["json", { outputFile: `${outDir}/playwright-report.json` }],
-  ],
+  reporter: [["list"], ["json", { outputFile: `${outDir}/playwright-report.json` }]],
   use: {
     baseURL,
     viewport: { width: 1440, height: 900 },

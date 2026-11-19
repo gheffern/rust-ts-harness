@@ -174,7 +174,7 @@ INNER_LOCAL_UPSTREAM="${LOCAL_UPSTREAM}"
 
 INNER_LICENSE=""
 
-CONTAINER_IMAGE="localhost/rust-toolchain:latest"
+CONTAINER_IMAGE="localhost/rust-ts-harness-toolchain:latest"
 PLAYWRIGHT_IMAGE="mcr.microsoft.com/playwright:v1.60.0-jammy"
 
 E2E_BASE_URL="http://127.0.0.1:8080"
