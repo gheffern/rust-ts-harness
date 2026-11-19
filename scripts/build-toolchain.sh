@@ -15,12 +15,14 @@ fi
 CONTAINER_IMAGE="${CONTAINER_IMAGE:-localhost/rust-ts-harness-toolchain:latest}"
 CONTAINERFILE="${REPO_ROOT}/docker/toolchain.Containerfile"
 IF_MISSING=false
+FRESH=false
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --if-missing) IF_MISSING=true; shift ;;
+    --fresh) FRESH=true; shift ;;
     -h|--help)
-      echo "Usage: $0 [--if-missing]"
+      echo "Usage: $0 [--if-missing] [--fresh]"
       exit 0
       ;;
     *)
@@ -48,5 +50,10 @@ if [[ ! -f "${CONTAINERFILE}" ]]; then
   exit 1
 fi
 
+BUILD_ARGS=(-t "${CONTAINER_IMAGE}" -f "${CONTAINERFILE}")
+if [[ "${FRESH}" == "true" ]]; then
+  BUILD_ARGS+=(--pull --no-cache)
+fi
+
 echo "[build-toolchain] Building ${CONTAINER_IMAGE} from ${CONTAINERFILE}..."
-"${RUNTIME}" build -t "${CONTAINER_IMAGE}" -f "${CONTAINERFILE}" "${REPO_ROOT}/docker"
+"${RUNTIME}" build "${BUILD_ARGS[@]}" "${REPO_ROOT}/docker"
